@@ -48,8 +48,11 @@ class TunnelHandler(asyncore.dispatcher):
 class ProxyHandler(asynchat.async_chat):
 	def __init__(self, sock, addr):
 		asynchat.async_chat.__init__(self, sock)
-		self.set_terminator(HTTP_TERMINATOR)
+		self.reset_status()
 		self.socket.setblocking(1)
+	
+	def reset_status(self):
+		self.set_terminator(HTTP_TERMINATOR)
 		self.request = None # example: ["CONNECT", "www.google.com:80", "HTTP/1.1"]
 		self.method = None			# example: ['GET', 'POST', 'CONNECT']
 		self.path = None			# example: '/index.html', 'www.google.com:443'
@@ -80,15 +83,7 @@ class ProxyHandler(asynchat.async_chat):
 			domain, path = url.split('/', 1)
 			path = '/' + path
 			self.HTTPProxy(domain, self.method, path, self.headers, data)
-			self.request = None # example: ["CONNECT", "www.google.com:80", "HTTP/1.1"]
-			self.method = None			# example: ['GET', 'POST', 'CONNECT']
-			self.path = None			# example: '/index.html', 'www.google.com:443'
-			self.version = None	# 'HTTP/1.1', 'HTTP1.0'
-			self.headers = {}
-			self.data = HTTP_EMPTY_BUFF
-			self.is_headers = False
-			self.is_tunneling = False # for http tunneling. use for https proxy
-			self.is_posting = False
+			self.reset_status()
 
 		else:
 			self.data += data
@@ -127,15 +122,7 @@ class ProxyHandler(asynchat.async_chat):
 						domain, path = url.split('/', 1)
 						path = '/' + path
 						self.HTTPProxy(domain, self.method, path, self.headers)
-						self.request = None # example: ["CONNECT", "www.google.com:80", "HTTP/1.1"]
-						self.method = None			# example: ['GET', 'POST', 'CONNECT']
-						self.path = None			# example: '/index.html', 'www.google.com:443'
-						self.version = None	# 'HTTP/1.1', 'HTTP1.0'
-						self.headers = {}
-						self.data = HTTP_EMPTY_BUFF
-						self.is_headers = False
-						self.is_tunneling = False # for http tunneling. use for https proxy
-						self.is_posting = False
+						self.reset_status()
 	
 	def connectToRemoteHost(self, host, port):
 		self.send(b'HTTP/1.1 200 Connection established\r\n\r\n')
@@ -145,10 +132,8 @@ class ProxyHandler(asynchat.async_chat):
 	def HTTPProxy(self, domain, method, path, headers, post_data = None):
 		conn = HTTPConnection(domain)
 		conn.request(method, path, post_data, headers)
-		print("Data to be post: ", method, domain, path, post_data)
 		response = conn.getresponse()
 		response_headers = response.getheaders()
-		print("GETTING RESPONSE")
 		data = response.read()
 		if 'Content-Length' not in dict(response_headers).keys() and 'content-length' not in dict(response_headers).keys():
 			response_headers.append(('Content-Length', len(data)))
